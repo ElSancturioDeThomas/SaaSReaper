@@ -1,11 +1,15 @@
 "use server";
 
-import { stripe, UNLOCK_PRICE } from "@/lib/stripe";
+import { stripe, UNLOCK_PRICE, isStripeEnabled } from "@/lib/stripe";
 import { sql } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function createPaymentIntent() {
+  if (!isStripeEnabled) {
+    throw new Error("Stripe is not configured. Please set STRIPE_SECRET_KEY in your .env.local file.");
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     throw new Error("Unauthorized");
@@ -25,6 +29,10 @@ export async function createPaymentIntent() {
 }
 
 export async function confirmPayment(paymentIntentId: string) {
+  if (!isStripeEnabled) {
+    throw new Error("Stripe is not configured. Please set STRIPE_SECRET_KEY in your .env.local file.");
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     throw new Error("Unauthorized");

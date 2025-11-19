@@ -7,7 +7,22 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { createPaymentIntent, confirmPayment } from "@/app/actions/payment";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
+// Check if Stripe key is set and not a placeholder
+const isStripeConfigured = stripePublishableKey && 
+  !stripePublishableKey.includes('your_publishable_key_here') && 
+  stripePublishableKey.startsWith('pk_');
+
+if (!isStripeConfigured) {
+  console.warn(
+    "Stripe is not configured. Using placeholder keys. Please set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in your .env.local file."
+  );
+}
+
+const stripePromise = isStripeConfigured && stripePublishableKey 
+  ? loadStripe(stripePublishableKey) 
+  : null;
 
 function CheckoutForm({ onSuccess }: { onSuccess: () => void }) {
   const stripe = useStripe();
@@ -107,7 +122,7 @@ export function PaymentDialog({ open, onOpenChange, onSuccess }: PaymentDialogPr
             </ul>
           </div>
 
-          {clientSecret && (
+          {clientSecret && stripePromise ? (
             <Elements
               stripe={stripePromise}
               options={{
@@ -122,6 +137,10 @@ export function PaymentDialog({ open, onOpenChange, onSuccess }: PaymentDialogPr
             >
               <CheckoutForm onSuccess={onSuccess} />
             </Elements>
+          ) : (
+            <div className="text-sm text-destructive">
+              Stripe is not configured. Please set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in your .env.local file.
+            </div>
           )}
         </div>
       </DialogContent>

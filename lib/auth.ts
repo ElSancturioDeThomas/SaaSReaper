@@ -1,7 +1,26 @@
 import { cookies } from 'next/headers'
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error(
+    "DATABASE_URL environment variable is not set. Please check your .env.local file."
+  );
+}
+
+// Ensure the connection string is properly formatted
+// Remove any trailing whitespace and ensure it's a valid string
+let connectionString = databaseUrl.trim();
+
+// If using pooler endpoint, try converting to non-pooler for serverless driver
+// The serverless driver may need the direct connection endpoint
+if (connectionString.includes('-pooler.')) {
+  // Replace pooler endpoint with direct endpoint
+  connectionString = connectionString.replace('-pooler.', '.');
+}
+
+const sql = neon(connectionString)
 
 export interface User {
   id: string
