@@ -52,7 +52,6 @@ export async function createCheckoutSession() {
       // Fallback if headers are not available
       baseUrl = process.env.NODE_ENV === 'production'
         ? 'https://v0-saa-s-reaper-app-design.vercel.app'
-        ? 'https://app.saasreaper.com' 
         : 'http://localhost:3000';
     }
   }
