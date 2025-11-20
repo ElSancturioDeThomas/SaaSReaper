@@ -4,6 +4,7 @@ import { stripe, UNLOCK_PRICE, isStripeEnabled } from "@/lib/stripe";
 import { sql } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 export async function createPaymentIntent() {
   if (!isStripeEnabled) {
@@ -38,7 +39,23 @@ export async function createCheckoutSession() {
     throw new Error("Unauthorized");
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  // Get base URL from request headers or environment variable
+  let baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  
+  if (!baseUrl) {
+    try {
+      const headersList = await headers();
+      const host = headersList.get('x-forwarded-host') || headersList.get('host') || 'localhost:3000';
+      const protocol = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+      baseUrl = `${protocol}://${host}`;
+    } catch (error) {
+      // Fallback if headers are not available
+      baseUrl = process.env.NODE_ENV === 'production'
+        ? 'https://v0-saa-s-reaper-app-design.vercel.app'
+        ? 'https://app.saasreaper.com' 
+        : 'http://localhost:3000';
+    }
+  }
 
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
