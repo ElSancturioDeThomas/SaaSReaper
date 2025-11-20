@@ -88,7 +88,7 @@ export async function getUserById(userId: string): Promise<User | null> {
   const result = await sql`
     SELECT id, email, name, created_at
     FROM users_sync
-    WHERE id = ${userId}
+    WHERE id::text = ${userId}
   `
   
   if (result.length === 0) return null

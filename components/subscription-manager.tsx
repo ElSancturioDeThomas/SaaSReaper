@@ -1,6 +1,8 @@
 'use client'
+// Fixes autoloading of the page when user input data changes.
 
-import { useState, useEffect } from 'react'
+
+import { useState, useEffect, useTransition } from 'react'
 import { SubscriptionCard } from './subscription-card'
 import { AddSubscriptionDialog } from './add-subscription-dialog'
 import { PaymentDialog } from './payment-dialog'
@@ -12,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { Plus } from 'lucide-react'
+import { Plus, Lock, Zap } from 'lucide-react'
 import type { Subscription } from '@/lib/db'
 import {
   getSubscriptions,
@@ -29,6 +31,7 @@ export function SubscriptionManager() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [paymentStatus, setPaymentStatus] = useState({ hasPaid: false, subscriptionCount: 0 })
   const [isLoading, setIsLoading] = useState(true)
+  const [isPending, startTransition] = useTransition()
 
   const loadData = async () => {
     setIsLoading(true)
@@ -46,23 +49,87 @@ export function SubscriptionManager() {
   }, [])
 
   const handleAddSubscription = async (data: Omit<Subscription, "id" | "user_id" | "created_at" | "updated_at">) => {
-    try {
-      await addSubscriptionAction(data)
-      await loadData()
-      setIsAddDialogOpen(false)
-    } catch (error: any) {
-      if (error.message === "PAYMENT_REQUIRED") {
+    const result = await addSubscriptionAction(data)
+    
+    if (result?.error) {
+      if (result.error === "PAYMENT_REQUIRED") {
         setIsAddDialogOpen(false)
         setIsPaymentDialogOpen(true)
       } else {
-        throw error
+        console.error("Failed to add subscription:", result.error)
+        // You could show a toast notification here
+        alert(result.error)
       }
+      return
     }
+    
+    // Success - reload data and close dialog
+    await loadData()
+    setIsAddDialogOpen(false)
   }
 
-  const handleUpdateSubscription = async (id: number, data: Partial<Subscription>) => {
-    await updateSubscriptionAction(id, data)
-    await loadData()
+  const handleUpdateSubscription = async (id: number, data: any) => {
+    // Find the subscription to update
+    const subscriptionIndex = subscriptions.findIndex((sub: any) => parseInt(String(sub.id)) === id)
+    if (subscriptionIndex === -1) return
+
+    // Save the original subscription for rollback
+    const originalSubscription = subscriptions[subscriptionIndex]
+
+    // Optimistically update local state immediately
+    setSubscriptions((prev) => {
+      const updated = [...prev]
+      const currentSub = updated[subscriptionIndex] as any
+      
+      // Merge updates into the subscription
+      if (data.renewalDate !== undefined) {
+        currentSub.renewalDate = data.renewalDate
+      }
+      if (data.seats !== undefined) {
+        currentSub.seats = data.seats
+      }
+      if (data.seatCost !== undefined) {
+        currentSub.seatCost = data.seatCost
+      }
+      if (data.reminders !== undefined) {
+        currentSub.reminders = {
+          ...currentSub.reminders,
+          ...data.reminders,
+        }
+      }
+      if (data.name !== undefined) {
+        currentSub.name = data.name
+      }
+      
+      return updated
+    })
+
+    // Update on server in the background
+    startTransition(async () => {
+      try {
+        // Update on server - the returned value has the updated subscription
+        const updatedSub = await updateSubscriptionAction(id, data)
+        
+        // Update only the specific subscription in state instead of refetching all
+        setSubscriptions((prev) => {
+          const updated = [...prev]
+          const subIndex = updated.findIndex((sub: any) => parseInt(String(sub.id)) === id)
+          if (subIndex !== -1 && updatedSub) {
+            updated[subIndex] = updatedSub as any
+          }
+          return updated
+        })
+      } catch (error) {
+        // Rollback on error
+        setSubscriptions((prev) => {
+          const rolledBack = [...prev]
+          rolledBack[subscriptionIndex] = originalSubscription
+          return rolledBack
+        })
+        console.error('Failed to update subscription:', error)
+        // You could show a toast notification here
+      }
+    })
   }
 
   const handleDeleteSubscription = async (id: number) => {
@@ -76,7 +143,11 @@ export function SubscriptionManager() {
   }
 
   const totalMonthlyCost = subscriptions.reduce(
-    (sum, sub) => sum + sub.seats * parseFloat(sub.cost_per_seat.toString()),
+    (sum, sub: any) => {
+      const seatCost = typeof sub.seatCost === 'number' ? sub.seatCost : parseFloat(sub.seatCost || sub.cost_per_seat || '0');
+      const seats = sub.seats || 0;
+      return sum + seats * seatCost;
+    },
     0
   )
 
@@ -165,17 +236,52 @@ export function SubscriptionManager() {
             </Button>
           </div>
         ) : (
-          subscriptions.map((subscription) => (
+          subscriptions.map((subscription: any) => (
             <SubscriptionCard
               key={subscription.id}
               subscription={subscription}
-              onUpdate={(id, updates) => handleUpdateSubscription(id as number, updates)}
-              onDelete={(id) => handleDeleteSubscription(id as number)}
+              onUpdate={(id, updates) => handleUpdateSubscription(parseInt(String(id)) || 0, updates)}
+              onDelete={(id) => handleDeleteSubscription(parseInt(String(id)) || 0)}
               currencySymbol={getCurrencySymbol()}
             />
           ))
         )}
       </div>
+
+      {/* Payment Banner - Shows when user has 3+ subscriptions and hasn't paid */}
+      {!paymentStatus.hasPaid && paymentStatus.subscriptionCount >= 3 && (
+        <div className="rounded-lg border-2 border-primary/50 bg-gradient-to-r from-primary/10 via-primary/5 to-card p-4 md:p-6 shadow-lg">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start gap-3 md:items-center">
+              <div className="rounded-full bg-primary/20 p-2 flex-shrink-0">
+                <Lock className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1">
+                  Free Limit Reached
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  You've reached the free limit of 3 subscriptions. Unlock unlimited tracking with a one-time payment.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl md:text-3xl font-bold text-primary">$9.97</span>
+                <span className="text-sm text-muted-foreground">one-time</span>
+              </div>
+              <Button
+                onClick={() => setIsPaymentDialogOpen(true)}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold whitespace-nowrap"
+                size="lg"
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Unlock Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AddSubscriptionDialog
         open={isAddDialogOpen}

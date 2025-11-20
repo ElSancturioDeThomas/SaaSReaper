@@ -1,30 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Checkbox } from './ui/checkbox'
-import type { Subscription } from './subscription-manager'
+import type { Subscription } from '@/lib/db'
 
 type AddSubscriptionDialogProps = {
-  children: React.ReactNode
-  onAdd: (subscription: Omit<Subscription, 'id'>) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onAdd: (subscription: Omit<Subscription, "id" | "user_id" | "created_at" | "updated_at">) => void
 }
 
 export function AddSubscriptionDialog({
-  children,
+  open,
+  onOpenChange,
   onAdd,
 }: AddSubscriptionDialogProps) {
-  const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [renewalDate, setRenewalDate] = useState('')
   const [seats, setSeats] = useState(1)
@@ -36,35 +36,46 @@ export function AddSubscriptionDialog({
     oneHour: false,
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setName('')
+      setRenewalDate('')
+      setSeats(1)
+      setSeatCost(0)
+      setReminders({
+        fiveDays: true,
+        twoDays: true,
+        oneDay: true,
+        oneHour: false,
+      })
+    }
+  }, [open])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !renewalDate) return
 
-    onAdd({
-      name,
-      renewalDate,
-      seats,
-      seatCost,
-      reminders,
-    })
-
-    // Reset form
-    setName('')
-    setRenewalDate('')
-    setSeats(1)
-    setSeatCost(0)
-    setReminders({
-      fiveDays: true,
-      twoDays: true,
-      oneDay: true,
-      oneHour: false,
-    })
-    setOpen(false)
+    try {
+      await onAdd({
+        name,
+        renewal_date: renewalDate,
+        seats,
+        cost_per_seat: seatCost,
+        remind_5d: reminders.fiveDays,
+        remind_2d: reminders.twoDays,
+        remind_1d: reminders.oneDay,
+        remind_1h: reminders.oneHour,
+      })
+      onOpenChange(false)
+    } catch (error) {
+      // Error handling is done in the parent component
+      throw error
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-foreground">
@@ -179,7 +190,7 @@ export function AddSubscriptionDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>

@@ -1,13 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Checkbox } from './ui/checkbox'
 import { Badge } from './ui/badge'
 import { Calendar, Trash2, Pencil, Check, X } from 'lucide-react'
-import type { Subscription } from './subscription-manager'
+
+type Subscription = {
+  id: string
+  user_id: string
+  name: string
+  renewalDate: string
+  seats: number
+  seatCost: number
+  reminders: {
+    fiveDays: boolean
+    twoDays: boolean
+    oneDay: boolean
+    oneHour: boolean
+  }
+  created_at?: string
+  updated_at?: string
+}
 
 type SubscriptionCardProps = {
   subscription: Subscription
@@ -24,8 +40,74 @@ export function SubscriptionCard({
 }: SubscriptionCardProps) {
   const [isEditingDate, setIsEditingDate] = useState(false)
   const [editedDate, setEditedDate] = useState(subscription.renewalDate)
+  const [localSeats, setLocalSeats] = useState(subscription.seats)
+  const [localSeatCost, setLocalSeatCost] = useState(subscription.seatCost)
   
-  const totalCost = subscription.seats * subscription.seatCost
+  // Update local state when subscription prop changes
+  useEffect(() => {
+    setLocalSeats(subscription.seats)
+    setLocalSeatCost(subscription.seatCost)
+  }, [subscription.seats, subscription.seatCost])
+  
+  // Debounce timers
+  const seatsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const costTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Throttle function for reminder updates
+  // UI updates immediately via optimistic updates, but database calls are throttled
+  const reminderUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const latestReminderUpdateRef = useRef<Partial<Subscription> | null>(null)
+  const isThrottlingRef = useRef(false)
+  
+  const throttledReminderUpdate = (updates: Partial<Subscription>) => {
+    // Store the latest update
+    latestReminderUpdateRef.current = updates
+    
+    // Update UI immediately (optimistic update - parent handles this)
+    onUpdate(subscription.id, updates)
+    
+    // If we're already throttling, just update the latest state and return
+    if (isThrottlingRef.current) {
+      return
+    }
+    
+    // Start throttling period
+    isThrottlingRef.current = true
+    
+    // Clear any existing timeout
+    if (reminderUpdateTimeoutRef.current) {
+      clearTimeout(reminderUpdateTimeoutRef.current)
+    }
+    
+    // After throttle delay, ensure latest state is synced with database
+    reminderUpdateTimeoutRef.current = setTimeout(() => {
+      if (latestReminderUpdateRef.current) {
+        // Final sync to ensure database has the latest state
+        // The parent's optimistic update already happened, but this ensures
+        // the final state after rapid clicks matches the database
+        onUpdate(subscription.id, latestReminderUpdateRef.current)
+      }
+      latestReminderUpdateRef.current = null
+      isThrottlingRef.current = false
+    }, 500)
+  }
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (seatsTimeoutRef.current) {
+        clearTimeout(seatsTimeoutRef.current)
+      }
+      if (costTimeoutRef.current) {
+        clearTimeout(costTimeoutRef.current)
+      }
+      if (reminderUpdateTimeoutRef.current) {
+        clearTimeout(reminderUpdateTimeoutRef.current)
+      }
+    }
+  }, [])
+  
+  const totalCost = localSeats * localSeatCost
 
   const daysUntilRenewal = Math.ceil(
     (new Date(subscription.renewalDate).getTime() - new Date().getTime()) /
@@ -126,42 +208,62 @@ export function SubscriptionCard({
                 <Input
                   type="number"
                   min="1"
-                  value={subscription.seats}
-                  onChange={(e) =>
-                    onUpdate(subscription.id, {
-                      seats: parseInt(e.target.value) || 1,
-                    })
-                  }
-                  className="w-14 md:w-16 h-7 md:h-8 bg-input border-border text-foreground text-xs px-2"
+                  value={localSeats}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 1
+                    setLocalSeats(value)
+                    
+                    // Clear existing timeout
+                    if (seatsTimeoutRef.current) {
+                      clearTimeout(seatsTimeoutRef.current)
+                    }
+                    
+                    // Debounce the update
+                    seatsTimeoutRef.current = setTimeout(() => {
+                      onUpdate(subscription.id, { seats: value })
+                    }, 500)
+                  }}
+                  className="w-16 md:w-20 h-7 md:h-8 bg-input border-border text-foreground text-xs px-2 text-right font-mono tabular-nums min-w-[3rem]"
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
                 />
               </div>
               <div className="flex items-center gap-1 md:gap-2">
                 <span className="text-xs text-muted-foreground whitespace-nowrap">Cost:</span>
                 <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none z-10">
                     {currencySymbol}
                   </span>
                   <Input
                     type="number"
                     min="0"
                     step="0.01"
-                    value={subscription.seatCost}
-                    onChange={(e) =>
-                      onUpdate(subscription.id, {
-                        seatCost: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="w-16 md:w-20 h-7 md:h-8 bg-input border-border text-foreground text-xs pl-4 md:pl-5 pr-2"
+                    value={localSeatCost}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      setLocalSeatCost(value)
+                      
+                      // Clear existing timeout
+                      if (costTimeoutRef.current) {
+                        clearTimeout(costTimeoutRef.current)
+                      }
+                      
+                      // Debounce the update
+                      costTimeoutRef.current = setTimeout(() => {
+                        onUpdate(subscription.id, { seatCost: value })
+                      }, 500)
+                    }}
+                    className="w-20 md:w-24 h-7 md:h-8 bg-input border-border text-foreground text-xs pl-5 md:pl-6 pr-2 text-right font-mono tabular-nums min-w-[5rem]"
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
                   />
                 </div>
               </div>
               
               {/* Total cost - inline on mobile */}
-              <div className="h-7 md:h-8 flex items-center px-2 md:px-3 rounded-md bg-primary/10 border border-primary/30">
-                <span className="text-primary font-semibold text-xs md:text-sm whitespace-nowrap">
+              <div className="h-7 md:h-8 flex items-center justify-end px-2 md:px-3 rounded-md bg-primary/10 border border-primary/30 min-w-[5rem] md:min-w-[6rem]">
+                <span className="text-primary font-semibold text-xs md:text-sm whitespace-nowrap font-mono tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {currencySymbol}{totalCost.toFixed(2)}
                 </span>
-                <span className="text-xs text-muted-foreground ml-1">/mo</span>
+                <span className="text-xs text-muted-foreground ml-1 flex-shrink-0">/mo</span>
               </div>
             </div>
 
@@ -172,14 +274,17 @@ export function SubscriptionCard({
                 <Checkbox
                   id={`reminder-5d-${subscription.id}`}
                   checked={subscription.reminders.fiveDays}
-                  onCheckedChange={(checked) =>
-                    onUpdate(subscription.id, {
+                  onCheckedChange={(checked) => {
+                    // Update UI immediately (optimistic update handled by parent)
+                    const updates = {
                       reminders: {
                         ...subscription.reminders,
                         fiveDays: checked as boolean,
                       },
-                    })
-                  }
+                    }
+                    // Throttle the database update
+                    throttledReminderUpdate(updates)
+                  }}
                   className="h-4 w-4"
                 />
                 <span className="text-xs text-muted-foreground">5d</span>
@@ -187,14 +292,17 @@ export function SubscriptionCard({
                 <Checkbox
                   id={`reminder-2d-${subscription.id}`}
                   checked={subscription.reminders.twoDays}
-                  onCheckedChange={(checked) =>
-                    onUpdate(subscription.id, {
+                  onCheckedChange={(checked) => {
+                    // Update UI immediately (optimistic update handled by parent)
+                    const updates = {
                       reminders: {
                         ...subscription.reminders,
                         twoDays: checked as boolean,
                       },
-                    })
-                  }
+                    }
+                    // Throttle the database update
+                    throttledReminderUpdate(updates)
+                  }}
                   className="h-4 w-4"
                 />
                 <span className="text-xs text-muted-foreground">2d</span>
@@ -202,14 +310,17 @@ export function SubscriptionCard({
                 <Checkbox
                   id={`reminder-1d-${subscription.id}`}
                   checked={subscription.reminders.oneDay}
-                  onCheckedChange={(checked) =>
-                    onUpdate(subscription.id, {
+                  onCheckedChange={(checked) => {
+                    // Update UI immediately (optimistic update handled by parent)
+                    const updates = {
                       reminders: {
                         ...subscription.reminders,
                         oneDay: checked as boolean,
                       },
-                    })
-                  }
+                    }
+                    // Throttle the database update
+                    throttledReminderUpdate(updates)
+                  }}
                   className="h-4 w-4"
                 />
                 <span className="text-xs text-muted-foreground">1d</span>
@@ -217,14 +328,17 @@ export function SubscriptionCard({
                 <Checkbox
                   id={`reminder-1h-${subscription.id}`}
                   checked={subscription.reminders.oneHour}
-                  onCheckedChange={(checked) =>
-                    onUpdate(subscription.id, {
+                  onCheckedChange={(checked) => {
+                    // Update UI immediately (optimistic update handled by parent)
+                    const updates = {
                       reminders: {
                         ...subscription.reminders,
                         oneHour: checked as boolean,
                       },
-                    })
-                  }
+                    }
+                    // Throttle the database update
+                    throttledReminderUpdate(updates)
+                  }}
                   className="h-4 w-4"
                 />
                 <span className="text-xs text-muted-foreground">1h</span>
