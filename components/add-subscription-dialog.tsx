@@ -28,7 +28,7 @@ export function AddSubscriptionDialog({
   const [name, setName] = useState('')
   const [renewalDate, setRenewalDate] = useState('')
   const [seats, setSeats] = useState(1)
-  const [seatCost, setSeatCost] = useState(0)
+  const [seatCost, setSeatCost] = useState('')
   const [reminders, setReminders] = useState({
     fiveDays: true,
     twoDays: true,
@@ -42,7 +42,7 @@ export function AddSubscriptionDialog({
       setName('')
       setRenewalDate('')
       setSeats(1)
-      setSeatCost(0)
+      setSeatCost('')
       setReminders({
         fiveDays: true,
         twoDays: true,
@@ -61,7 +61,7 @@ export function AddSubscriptionDialog({
         name,
         renewal_date: renewalDate,
         seats,
-        cost_per_seat: seatCost,
+        cost_per_seat: parseFloat(seatCost) || 0,
         remind_5d: reminders.fiveDays,
         remind_2d: reminders.twoDays,
         remind_1d: reminders.oneDay,
@@ -128,7 +128,7 @@ export function AddSubscriptionDialog({
                 min="0"
                 step="0.01"
                 value={seatCost}
-                onChange={(e) => setSeatCost(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setSeatCost(e.target.value)}
                 className="bg-input border-border text-foreground"
               />
             </div>
