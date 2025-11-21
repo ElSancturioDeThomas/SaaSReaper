@@ -4,6 +4,7 @@ import '../styles/globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Analytics } from "@vercel/analytics/next"
 
+
 const geist = Geist({ 
   subsets: ["latin"],
   variable: '--font-sans',
@@ -14,25 +15,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SaaSReaper - Stop Wasting Money on Forgotten Subscriptions',
-  description: 'Track your SaaS subscriptions and get reminded before they auto-renew. Because fuck surprise charges.',
-  generator: 'v0.app',
+  title: 'SaaSReaper',
+  description: 'Track your SaaS subscriptions and get reminded before they auto-renew. Because screw surprise charges.',
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
+        url: '/icon.svg?v=2',
         type: 'image/svg+xml',
       },
+      {
+        url: '/icon-light-32x32.png?v=2',
+        media: '(prefers-color-scheme: light)',
+        sizes: '32x32',
+      },
+      {
+        url: '/icon-dark-32x32.png?v=2',
+        media: '(prefers-color-scheme: dark)',
+        sizes: '32x32',
+      },
     ],
-    apple: '/apple-icon.png',
+    apple: [
+      {
+        url: '/apple-icon.png?v=2',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
+    shortcut: '/icon.svg?v=2',
   },
 }
 
