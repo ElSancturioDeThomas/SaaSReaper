@@ -42,11 +42,13 @@ export function SubscriptionCard({
   const [editedDate, setEditedDate] = useState(subscription.renewalDate)
   const [localSeats, setLocalSeats] = useState(subscription.seats)
   const [localSeatCost, setLocalSeatCost] = useState(subscription.seatCost)
+  const [seatCostInput, setSeatCostInput] = useState(subscription.seatCost.toString())
   
   // Update local state when subscription prop changes
   useEffect(() => {
     setLocalSeats(subscription.seats)
     setLocalSeatCost(subscription.seatCost)
+    setSeatCostInput(subscription.seatCost.toString())
   }, [subscription.seats, subscription.seatCost])
   
   // Debounce timers
@@ -234,36 +236,66 @@ export function SubscriptionCard({
                     {currencySymbol}
                   </span>
                   <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={localSeatCost}
+                    type="text"
+                    inputMode="decimal"
+                    value={seatCostInput}
                     onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0
-                      setLocalSeatCost(value)
-                      
-                      // Clear existing timeout
-                      if (costTimeoutRef.current) {
-                        clearTimeout(costTimeoutRef.current)
+                      const inputValue = e.target.value
+                      // Allow empty string or valid number input
+                      if (inputValue === '' || /^\d*\.?\d*$/.test(inputValue)) {
+                        setSeatCostInput(inputValue)
+                        
+                        // Update localSeatCost for calculations if valid number
+                        const numValue = parseFloat(inputValue)
+                        if (!isNaN(numValue) && inputValue !== '') {
+                          setLocalSeatCost(numValue)
+                        }
+                        
+                        // Clear existing timeout
+                        if (costTimeoutRef.current) {
+                          clearTimeout(costTimeoutRef.current)
+                        }
+                        
+                        // Debounce the update
+                        costTimeoutRef.current = setTimeout(() => {
+                          const finalValue = parseFloat(inputValue) || 0
+                          setLocalSeatCost(finalValue)
+                          onUpdate(subscription.id, { seatCost: finalValue })
+                        }, 500)
                       }
-                      
-                      // Debounce the update
-                      costTimeoutRef.current = setTimeout(() => {
-                        onUpdate(subscription.id, { seatCost: value })
-                      }, 500)
                     }}
-                    className="w-20 md:w-24 h-7 md:h-8 bg-input border-border text-foreground text-xs pl-5 md:pl-6 pr-2 text-right font-mono tabular-nums min-w-[5rem]"
-                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                    onBlur={() => {
+                      // On blur, ensure we have a valid number or reset to 0
+                      if (seatCostInput === '' || isNaN(parseFloat(seatCostInput))) {
+                        setSeatCostInput('0')
+                        setLocalSeatCost(0)
+                        onUpdate(subscription.id, { seatCost: 0 })
+                      } else {
+                        // Format the value to remove trailing zeros if needed
+                        const numValue = parseFloat(seatCostInput)
+                        setSeatCostInput(numValue.toString())
+                        setLocalSeatCost(numValue)
+                      }
+                    }}
+                    className="h-7 md:h-8 bg-input border-border text-foreground text-xs pl-5 md:pl-6 pr-2 text-right font-mono tabular-nums overflow-x-auto scrollbar-hide"
+                    style={{ 
+                      fontVariantNumeric: 'tabular-nums',
+                      width: '5rem',
+                      maxWidth: '5rem',
+                      minWidth: '5rem'
+                    }}
                   />
                 </div>
               </div>
               
               {/* Total cost - inline on mobile */}
-              <div className="h-7 md:h-8 flex items-center justify-end px-2 md:px-3 rounded-md bg-primary/10 border border-primary/30 min-w-[5rem] md:min-w-[6rem]">
-                <span className="text-primary font-semibold text-xs md:text-sm whitespace-nowrap font-mono tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {currencySymbol}{totalCost.toFixed(2)}
-                </span>
-                <span className="text-xs text-muted-foreground ml-1 flex-shrink-0">/mo</span>
+              <div className="h-7 md:h-8 flex items-center justify-end px-2 md:px-3 rounded-md bg-primary/10 border border-primary/30 overflow-hidden" style={{ width: '8.33rem', maxWidth: '8.33rem', minWidth: '8.33rem' }}>
+                <div className="flex items-center gap-1 w-full justify-end overflow-x-auto scrollbar-hide">
+                  <span className="text-primary font-semibold text-xs md:text-sm whitespace-nowrap font-mono tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {currencySymbol}{totalCost.toFixed(2)}
+                  </span>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">/mo</span>
+                </div>
               </div>
             </div>
 
