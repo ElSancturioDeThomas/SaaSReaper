@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { SubscriptionManager } from '@/components/subscription-manager'
+import { SiteFooter } from '@/components/site-footer'
 import { Button } from '@/components/ui/button'
 import { signOut } from '@/app/actions/auth'
 
@@ -12,7 +13,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
@@ -36,9 +37,10 @@ export default async function Home() {
           </div>
         </div>
       </header>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 flex-1">
         <SubscriptionManager />
       </div>
+      <SiteFooter />
     </main>
   )
 }
