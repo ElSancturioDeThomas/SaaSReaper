@@ -9,7 +9,7 @@ export function SiteFooter() {
           
           <div className="text-left flex flex-col items-start gap-2 w-full md:w-auto">
             <div>
-              <h3 className="text-lg font-bold text-foreground font-serif tracking-tight">
+              <h3 className="text-lg font-bold text-foreground tracking-tight">
                 Tried our product?
               </h3>
               <p className="text-muted-foreground text-sm">
