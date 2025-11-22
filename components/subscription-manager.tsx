@@ -107,18 +107,10 @@ export function SubscriptionManager() {
     // Update on server in the background
     startTransition(async () => {
       try {
-        // Update on server - the returned value has the updated subscription
-        const updatedSub = await updateSubscriptionAction(id, data)
-        
-        // Update only the specific subscription in state instead of refetching all
-        setSubscriptions((prev) => {
-          const updated = [...prev]
-          const subIndex = updated.findIndex((sub: any) => parseInt(String(sub.id)) === id)
-          if (subIndex !== -1 && updatedSub) {
-            updated[subIndex] = updatedSub as any
-          }
-          return updated
-        })
+        // Update on server - but don't update local state with the response
+        // This avoids race conditions where a slow server response overwrites
+        // a newer optimistic update (e.g. quickly toggling checkboxes)
+        await updateSubscriptionAction(id, data)
       } catch (error) {
         // Rollback on error
         setSubscriptions((prev) => {
