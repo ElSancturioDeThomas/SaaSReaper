@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { SiteFooter } from '@/components/site-footer'
 import { Input } from '@/components/ui/input'
 import { getSaaSProducts } from '@/app/actions/catalog'
+import { ProductLogo } from '@/components/product-logo-fallback'
 
 export default async function CatalogPage() {
   const products = await getSaaSProducts()
@@ -54,17 +55,11 @@ export default async function CatalogPage() {
               {/* Card Header with Icon and Status */}
               <div className="flex items-start justify-between mb-3">
                 <div className="h-10 w-10 rounded-md bg-background border border-border flex items-center justify-center overflow-hidden">
-                  {product.logo_url ? (
-                    <img 
-                      src={product.logo_url} 
-                      alt={`${product.name} logo`} 
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-lg font-bold text-primary">
-                      {product.name.charAt(0)}
-                    </span>
-                  )}
+                  <ProductLogo 
+                    src={product.logo_url} 
+                    alt={`${product.name} logo`}
+                    fallback={product.name}
+                  />
                 </div>
                 <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                   product.status === 'verified' 
