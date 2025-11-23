@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { Plus, Lock, Zap } from 'lucide-react'
+import { Plus, Lock, Zap, ScrollText } from 'lucide-react'
+import Link from 'next/link'
 import type { Subscription } from '@/lib/db'
 import {
   getSubscriptions,
@@ -199,6 +200,13 @@ export function SubscriptionManager() {
               <SelectItem value="AUD">AUD (A$)</SelectItem>
             </SelectContent>
           </Select>
+          <Button asChild variant="outline" className="text-sm md:text-base bg-card border-border">
+            <Link href="/catalog">
+              <ScrollText className="mr-1 md:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Reaper's List</span>
+              <span className="sm:hidden">List</span>
+            </Link>
+          </Button>
           <Button 
             onClick={() => setIsAddDialogOpen(true)}
             className="bg-primary text-primary-foreground hover:bg-primary/90 text-sm md:text-base"
