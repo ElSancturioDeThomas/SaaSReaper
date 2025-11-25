@@ -18,10 +18,10 @@ export default async function Home() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">
-              Saas<span className="text-primary">Reaper</span>
+              SaaS<span className="text-primary">Reaper</span>
             </h1>
             <p className="text-sm text-muted-foreground">
-              Stop getting fucked by auto-renewals
+              Stop getting screwed by auto-renewals
             </p>
           </div>
           <div className="flex items-center gap-4">
