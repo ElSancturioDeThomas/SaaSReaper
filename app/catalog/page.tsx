@@ -5,27 +5,25 @@ import { SiteFooter } from '@/components/site-footer'
 import { Input } from '@/components/ui/input'
 import { getSaaSProducts } from '@/app/actions/catalog'
 import { ProductLogo } from '@/components/product-logo-fallback'
+import { getCurrentUser } from '@/lib/auth'
+import { Navbar } from '@/components/navbar'
 
 export default async function CatalogPage() {
+  const user = await getCurrentUser()
   const products = await getSaaSProducts()
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground hover:text-foreground">
-              <Link href="/">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Link>
-            </Button>
-            <div className="h-6 w-px bg-border hidden sm:block" />
-            <h1 className="text-xl font-semibold hidden sm:block">
-              Reaper's List
-            </h1>
+      <Navbar user={user} />
+      <div className="container mx-auto px-4 py-8 flex-1">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Global SaaS Catalog</h2>
+            <p className="text-muted-foreground">
+              The definitive directory of subscription services. Verified by the community.
+            </p>
           </div>
-          <div className="w-full max-w-xs sm:max-w-sm md:max-w-md ml-4">
+          <div className="w-full max-w-xs sm:max-w-sm">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
@@ -35,15 +33,6 @@ export default async function CatalogPage() {
               />
             </div>
           </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8 flex-1">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Global SaaS Catalog</h2>
-          <p className="text-muted-foreground">
-            The definitive directory of subscription services. Verified by the community.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
